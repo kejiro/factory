@@ -14,7 +14,7 @@ type Builder interface {
 	// Defines a factory which later can be used to create instances of a struct
 	Define(model interface{}, definitions Definition) error
 	// Build creates an instance of a previously defined struct, model should be a pointer to the struct that will be populated
-	Build(model interface{}) error
+	Build(model interface{}, overrides Definition) error
 }
 
 type factory struct {
@@ -50,7 +50,7 @@ func nameOf(model interface{}) string {
 	return val.Name()
 }
 
-func (f *defaultFactoryBuilder) Build(model interface{}) error {
+func (f *defaultFactoryBuilder) Build(model interface{}, overrides Definition) error {
 	modelType := reflect.TypeOf(model)
 	name := nameOf(model)
 
@@ -61,18 +61,47 @@ func (f *defaultFactoryBuilder) Build(model interface{}) error {
 	if modelType.Kind() != reflect.Ptr {
 		return fmt.Errorf("model needs to be a pointer")
 	}
-	obj := reflect.ValueOf(model).Elem()
-	for k, v := range fac.definitions {
-		field := obj.FieldByName(k)
-		val := reflect.ValueOf(v)
-		if val.Kind() == reflect.Func {
-			res := val.Call([]reflect.Value{})
-			val = res[0]
-		}
-		field.Set(val)
-	}
 
+	obj := reflect.ValueOf(model).Elem()
+	o := reflect.TypeOf(model).Elem()
+
+	names, indexes := getFields([]int{}, o)
+
+	for i, n := range names {
+		v, ok := overrides[n]
+		if !ok {
+			v, ok = fac.definitions[n]
+		}
+		if ok {
+			field := obj.FieldByIndex(indexes[i])
+			val := reflect.ValueOf(v)
+			if val.Kind() == reflect.Func {
+				res := val.Call([]reflect.Value{})
+				val = res[0]
+			}
+			field.Set(val)
+		}
+	}
 	return nil
+}
+
+func getFields(parent []int, obj reflect.Type) ([]string, [][]int) {
+	fc := obj.NumField()
+	names := make([]string, 0, 10)
+	indexes := make([][]int, 0, 10)
+	for i := 0; i < fc; i += 1 {
+		field := obj.Field(i)
+		if field.Anonymous {
+			an, ai := getFields(append(parent, field.Index...), field.Type)
+			names = append(names, an...)
+			indexes = append(indexes, ai...)
+		} else {
+			names = append(names, field.Name)
+			idx := append(parent, field.Index...)
+			indexes = append(indexes, idx)
+		}
+	}
+	return names, indexes
 }
 
 /*
@@ -101,6 +130,6 @@ func Define(model interface{}, definitions Definition) error {
 }
 
 // Build creates an instance of a model previously registered in the global registry
-func Build(model interface{}) error {
-	return builder.Build(model)
+func Build(model interface{}, overrides Definition) error {
+	return builder.Build(model, overrides)
 }
