@@ -1,4 +1,4 @@
-module factory
+module github.com/kejiro/factory
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
