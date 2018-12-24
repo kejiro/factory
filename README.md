@@ -8,11 +8,11 @@ A fixtures replacement for GO, inspired by factory_bot in Ruby with the goal to 
 
 Install the dependency
 
-    go get -u github.com/keijro/factory-go
+    go get -u github.com/kejiro/factory-go
      
 Use in the project:
 
-    import "github.com/keijro/factory-go"
+    import "github.com/kejiro/factory-go"
     
 ## Usage
 
